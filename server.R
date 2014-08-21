@@ -1,41 +1,24 @@
 # -*- coding: utf-8 -*-
 library(shiny)
-library(plyr)
+library(dplyr)
 library(ggplot2)
 
-simulate = function(N, s, p, generations) {
-    freq = p
-    for (i in seq_len(generations - 1)) {
-        p = rbinom(1, N, min((1 + s) * p, 1)) / N
-        freq = c(freq, p)
-    }
-    data.frame(time=seq_len(generations), freq=freq)
-}
-
-locale = 'ja'
-title_template = c(
-    en='Evolutionary trajectories of %d replicates',
-    ja='反復試行%d回分の軌跡')
+tbl = read.delim('data/pombe-mean.tsv.gz', stringsAsFactor=FALSE)
 
 shinyServer(function(input, output) {
-  output$title = renderText({
-      input$go
-      sprintf(title_template[locale], isolate(input$replications))
-  })
-  output$lineplot <- renderPlot({
-    input$go
-    isolate({
-        .data = rdply(input$replications,
-                    simulate(input$popsize,
-                        input$selection,
-                        input$frequency,
-                        input$generations))
-        .p = ggplot(.data, aes(time, freq, group=.n)) +
-            geom_line(alpha=0.5) +
-            ylim(c(0, 1)) +
-            coord_cartesian(c(0, input$generations)) +
-            labs(x='Time (generations)', y='Frequency')
-        .p
-    })
-  })
+  output$datatable = renderDataTable({
+    tbl %>% filter(nchar(oligo)==input$width, theta_pi<input$thr_p, TajimasD<input$thr_d)
+  }, options=list(iDisplayLength=16, aaSorting=list(list(3, 'asc')))
+  )
+  output$plot = renderPlot(tbl %>%
+    filter(nchar(oligo)==input$width) %>%
+    mutate(interest=theta_pi<input$thr_p & TajimasD<input$thr_d) %>%
+    ggplot(aes(theta_pi, TajimasD, colour=interest)) +
+    geom_vline(xintercept=0, colour='gray') +
+    geom_hline(yintercept=0, colour='gray') +
+    geom_point() +
+    geom_vline(xintercept=input$thr_p, colour='orangered') +
+    geom_hline(yintercept=input$thr_d, colour='orangered') +
+    scale_colour_discrete(h.start=180)
+  )
 })

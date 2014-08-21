@@ -1,4 +1,4 @@
-Shiny app for genetic drift simulation
+S. pombe polymorphism statistics
 ================================================================================
 
-http://heavywatal.shinyapps.io/driftr
+http://heavywatal.shinyapps.io/pomber
