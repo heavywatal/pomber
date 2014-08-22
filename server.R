@@ -19,6 +19,8 @@ shinyServer(function(input, output) {
     geom_point() +
     geom_vline(xintercept=input$thr_p, colour='orangered') +
     geom_hline(yintercept=input$thr_d, colour='orangered') +
-    scale_colour_discrete(h.start=180)
+    scale_colour_discrete(h.start=180) +
+    labs(x=expression(theta[pi]), y='Tajima\'s D') +
+    theme(legend.position='none')
   )
 })
