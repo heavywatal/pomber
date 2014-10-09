@@ -1,0 +1,118 @@
+---
+title: "Motif distribution on S. pombe genome"
+output: html_document
+runtime: shiny
+---
+
+```{r library, echo=FALSE, message=FALSE}
+library(stringr)
+library(pipeR)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(Biostrings)
+library(GenomicRanges)
+```
+
+```{r static, echo=FALSE}
+revcomp = function(x)
+    x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
+
+complement = function(x)
+    chartr('ATGC', 'TACG', x)
+
+make_windows = function(len, width, step)
+    successiveIRanges(rep(width, (len - width) / step + 1), step - width)
+
+load('data/chromosomes.rda')
+```
+
+
+```{r input, echo=FALSE}
+inputPanel(
+    sliderInput('width', 'Window width:',
+                1000, 10000, 5000, 1000),
+    sliderInput('step', 'Sliding step:',
+                100, 2000, 1000, 100),
+    textInput('query', 'Query motif:', 'GCGCAC'),
+    sliderInput('start', 'View position:',
+                0, 5500000, 0, 500000),
+    sliderInput('range', 'View range:',
+                500000, 5600000, 5600000, 500000)
+)
+```
+
+```{r data, echo=FALSE}
+.reactive = reactive({
+
+.query = PDict(c(input$query, revcomp(input$query)))
+
+.data = ldply(chromosomes, function(.s) {
+    .windows = make_windows(length(.s), input$width, input$step)
+    .nucl_count = Views(.s, .windows) %>>%
+        alphabetFrequency(as.prob=TRUE) %>>%
+        data.frame() %>>% tbl_df() %>>%# (? .) %>>%
+        select(A, C, G, T, N) %>>%
+        mutate(AT=A + T, GC=C + G)
+    .hit = matchPDict(.query, .s) %>>% Biostrings::unlist()
+    data.frame(
+        pos=end(.windows) - input$width / 2,
+        .nucl_count,
+        observed=countOverlaps(.windows, .hit)
+      )
+}, .id='chr') %>>% tbl_df()# %>>% (? .)
+
+.prob = input$query %>>%
+    strsplit('') %>>% unlist() %>>% paste(collapse='*') %>>%
+    paste(complement(.), sep = ' + ')
+
+.data = .data %>>%
+    mutate_(p = .prob) %>>%
+    mutate(expected = p * (input$width - nchar(input$query) + 1))
+
+.observed = ldply(chromosomes, function(.s) {
+    matchPDict(.query, .s) %>>%
+        Biostrings::unlist() %>>%
+        start() %>>%
+        (data.frame(pos=.))
+}, .id='chr') %>>% tbl_df()# %>>% (? .)
+
+.end = min(input$start + input$range, 5.6e6)
+.data = .data %>>% filter(pos > input$start, pos < .end)
+.observed = .observed %>>% filter(pos > input$start, pos < .end)
+.breaks = pretty(c(input$start, .end), 20)
+
+ggplot(.data, aes(pos))+
+    geom_area(aes(y=observed), fill='#009999')+
+    geom_line(aes(y=expected), colour='#FF3300', alpha=0.6)+
+    geom_point(data=.observed, aes(y=-0.5), shape='|')+
+    facet_grid(chr ~ ., labeller=label_both)+
+    scale_x_continuous(expand=c(0, 0), breaks=.breaks)+#seq(0, 6e6, 2e5))+
+    theme_bw()+
+    theme(axis.text.x=element_text(angle=20))+
+    labs(x='Position', y='Count')+
+    ggtitle(sprintf('%s|%s, width = %d, step = %d',
+                    input$query, revcomp(input$query),
+                    input$width, input$step))
+})
+```
+
+```{r plot, echo=FALSE}
+renderPlot(.reactive(), width=2000, height=1200, res=200)
+
+# https://github.com/hadley/ggplot2/pull/939
+ggpng = function(..., width, height) {
+    grDevices::png(..., width = width, 
+        height = height, res = 300, units = "in")
+}
+
+downloadHandler(
+    filename = function(){
+        sprintf('%s-w%d-s%d.png', input$query, input$width, input$step)
+    },
+    content = function(file) {
+        ggsave(file, .reactive(), device=ggpng,
+               width=10, height=3, scale=2)
+    }
+)
+```
