@@ -1,10 +1,15 @@
 ---
 title: "Motif distribution on S. pombe genome"
-output: html_document
+output:
+  html_document:
+    css: style.css
+    fig_height: 6
+    fig_width: 12
 runtime: shiny
 ---
 
 ```{r library, echo=FALSE, message=FALSE}
+options(width = 6000)
 library(stringr)
 library(pipeR)
 library(plyr)
@@ -30,14 +35,14 @@ load('data/chromosomes.rda')
 
 ```{r input, echo=FALSE}
 inputPanel(
+    textInput('query', 'Query motif:', 'GCGCAC'),
     sliderInput('width', 'Window width:',
-                1000, 10000, 5000, 1000),
+                1000, 10000, 10000, 1000),
     sliderInput('step', 'Sliding step:',
                 100, 2000, 1000, 100),
-    textInput('query', 'Query motif:', 'GCGCAC'),
     sliderInput('start', 'View position:',
                 0, 5500000, 0, 500000),
-    sliderInput('range', 'View range:',
+    sliderInput('range', 'View width:',
                 500000, 5600000, 5600000, 500000)
 )
 ```
@@ -98,7 +103,7 @@ ggplot(.data, aes(pos))+
 ```
 
 ```{r plot, echo=FALSE}
-renderPlot(.reactive(), width=2000, height=1200, res=200)
+renderPlot(.reactive(), width=3000, height=1200, res=200)
 
 # https://github.com/hadley/ggplot2/pull/939
 ggpng = function(..., width, height) {
