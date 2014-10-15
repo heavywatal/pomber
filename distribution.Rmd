@@ -48,44 +48,69 @@ inputPanel(
 ```
 
 ```{r data, echo=FALSE}
+
+make_query = function(s) PDict(c(s, revcomp(s)))
+
+.sliding_window = function(.query, .width, .step) {
+    .data = ldply(chromosomes, function(.s) {
+        .windows = make_windows(length(.s), .width, .step)
+        .nucl_count = Views(.s, .windows) %>>%
+            alphabetFrequency(as.prob=TRUE) %>>%
+            data.frame() %>>% tbl_df() %>>%# (? .) %>>%
+            select(A, C, G, T, N) %>>%
+            mutate(AT=A + T, GC=C + G)
+        .hit = matchPDict(.query, .s) %>>% Biostrings::unlist()
+        data.frame(
+            pos=end(.windows) - .width / 2,
+            .nucl_count,
+            observed=countOverlaps(.windows, .hit)
+          )
+    }, .id='chr') %>>% tbl_df()# %>>% (? .)
+
+    .prob = .query@dict0 %>>%
+        as.character() %>>%
+        strsplit('') %>>%
+        llply(paste, collapse='*') %>>%
+        unlist() %>>%
+        paste(collapse='+')
+
+    .data = .data %>>%
+        mutate_(p = .prob) %>>%
+        mutate(expected = p * (.width - width(.query)[1] + 1))
+}
+
+.observe = function(.query) {
+    ldply(chromosomes, function(.s) {
+        matchPDict(.query, .s) %>>%
+            Biostrings::unlist() %>>%
+            start() %>>%
+            (data.frame(pos=.))
+    }, .id='chr') %>>% tbl_df()# %>>% (? .)
+}
+
+#input = data_frame(query='GCGCAC', width=10000, step=1000)
+
 .reactive = reactive({
 
-.query = PDict(c(input$query, revcomp(input$query)))
-
-.data = ldply(chromosomes, function(.s) {
-    .windows = make_windows(length(.s), input$width, input$step)
-    .nucl_count = Views(.s, .windows) %>>%
-        alphabetFrequency(as.prob=TRUE) %>>%
-        data.frame() %>>% tbl_df() %>>%# (? .) %>>%
-        select(A, C, G, T, N) %>>%
-        mutate(AT=A + T, GC=C + G)
-    .hit = matchPDict(.query, .s) %>>% Biostrings::unlist()
-    data.frame(
-        pos=end(.windows) - input$width / 2,
-        .nucl_count,
-        observed=countOverlaps(.windows, .hit)
-      )
-}, .id='chr') %>>% tbl_df()# %>>% (? .)
-
-.prob = input$query %>>%
-    strsplit('') %>>% unlist() %>>% paste(collapse='*') %>>%
-    paste(complement(.), sep = ' + ')
-
-.data = .data %>>%
-    mutate_(p = .prob) %>>%
-    mutate(expected = p * (input$width - nchar(input$query) + 1))
-
-.observed = ldply(chromosomes, function(.s) {
-    matchPDict(.query, .s) %>>%
-        Biostrings::unlist() %>>%
-        start() %>>%
-        (data.frame(pos=.))
-}, .id='chr') %>>% tbl_df()# %>>% (? .)
+.query = make_query(input$query)
+.data = .sliding_window(.query, input$width, input$step)
+.observed = .observe(.query)
 
 .end = min(input$start + input$range, 5.6e6)
 .data = .data %>>% filter(pos > input$start, pos < .end)
 .observed = .observed %>>% filter(pos > input$start, pos < .end)
 .breaks = pretty(c(input$start, .end), 20)
+
+#.breaks = seq_len(max(.data$observed) + 1) - 1.5
+#ggplot(.data, aes(observed))+
+#    geom_histogram(breaks=.breaks)
+
+#.observed %>>%
+#    group_by(chr) %>>%
+#    arrange(pos) %>>%
+#    do(data_frame(distance=diff(.$pos))) %>>%
+#    ggplot(aes(distance))+
+#    geom_histogram()
 
 ggplot(.data, aes(pos))+
     geom_area(aes(y=observed), fill='#009999')+
