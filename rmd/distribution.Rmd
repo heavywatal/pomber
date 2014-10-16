@@ -32,7 +32,7 @@ make_windows = function(len, width, step)
 load('data/chromosomes.rda')
 ```
 
-## パラメータ
+### パラメータ
 
 ```{r input, echo=FALSE}
 inputPanel(
@@ -46,6 +46,7 @@ inputPanel(
     sliderInput('range', 'View width:',
                 500000, 5600000, 5600000, 500000)
 )
+#input = data_frame(query='CGTGCA', width=20000, step=2000)
 ```
 
 ```{r data, echo=FALSE}
@@ -88,8 +89,6 @@ make_query = function(s) PDict(c(s, revcomp(s)))
             (data.frame(pos=.))
     }, .id='chr') %>>% tbl_df()# %>>% (? .)
 }
-
-#input = data_frame(query='GCGCAC', width=10000, step=1000)
 
 .reactive = reactive({
 
@@ -148,9 +147,12 @@ list(p1=p1, p2=p2, p3=p3)
 })
 ```
 
-green = observed, red = expected
+<b>
+<font color="#009999">green = observed</font>,
+<font color="#FF3300">red = expected</font>
+</b>
 
-## モチーフの分布
+### モチーフの分布
 
 ```{r plot, echo=FALSE}
 renderPlot(.reactive()$p1, width=3000, height=1200, res=200)
@@ -172,7 +174,7 @@ downloadHandler(
 )
 ```
 
-## ウィンドウあたりのモチーフ数
+### ウィンドウあたりのモチーフ数
 
 ```{r perwindow, echo=FALSE}
 renderPlot(.reactive()$p2, width=2000, height=800, res=200)
@@ -188,7 +190,7 @@ downloadHandler(
 )
 ```
 
-## 発見されたモチーフ間の距離
+### モチーフ間の距離 (bp)
 
 ```{r interval, echo=FALSE}
 renderPlot(.reactive()$p3, width=2000, height=800, res=200)
