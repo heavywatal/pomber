@@ -32,12 +32,13 @@ make_windows = function(len, width, step)
 load('data/chromosomes.rda')
 ```
 
+## パラメータ
 
 ```{r input, echo=FALSE}
 inputPanel(
     textInput('query', 'Query motif:', 'GCGCAC'),
     sliderInput('width', 'Window width:',
-                1000, 10000, 10000, 1000),
+                2000, 50000, 10000, 2000),
     sliderInput('step', 'Sliding step:',
                 100, 2000, 1000, 100),
     sliderInput('start', 'View position:',
@@ -105,14 +106,7 @@ make_query = function(s) PDict(c(s, revcomp(s)))
 #ggplot(.data, aes(observed))+
 #    geom_histogram(breaks=.breaks)
 
-#.observed %>>%
-#    group_by(chr) %>>%
-#    arrange(pos) %>>%
-#    do(data_frame(distance=diff(.$pos))) %>>%
-#    ggplot(aes(distance))+
-#    geom_histogram()
-
-ggplot(.data, aes(pos))+
+.p1 = ggplot(.data, aes(pos))+
     geom_area(aes(y=observed), fill='#009999')+
     geom_line(aes(y=expected), colour='#FF3300', alpha=0.6)+
     geom_point(data=.observed, aes(y=-0.5), shape='|')+
@@ -124,13 +118,26 @@ ggplot(.data, aes(pos))+
     ggtitle(sprintf('%s|%s, width = %d, step = %d',
                     input$query, revcomp(input$query),
                     input$width, input$step))
+
+.p2 = .observed %>>%
+    group_by(chr) %>>%
+    arrange(pos) %>>%
+    do(data_frame(distance=diff(.$pos))) %>>%
+    ggplot(aes(distance))+
+    geom_histogram()
+
+list(p1=.p1, p2=.p2)
 })
 ```
 
-```{r plot, echo=FALSE}
-renderPlot(.reactive(), width=3000, height=1200, res=200)
+## モチーフの分布
 
-# https://github.com/hadley/ggplot2/pull/939
+green = observed, red = expected
+
+```{r plot, echo=FALSE}
+renderPlot(.reactive()$p1, width=3000, height=1200, res=200)
+
+#https://github.com/hadley/ggplot2/pull/939
 ggpng = function(..., width, height) {
     grDevices::png(..., width = width, 
         height = height, res = 300, units = "in")
@@ -141,7 +148,23 @@ downloadHandler(
         sprintf('%s-w%d-s%d.png', input$query, input$width, input$step)
     },
     content = function(file) {
-        ggsave(file, .reactive(), device=ggpng,
+        ggsave(file, .reactive()$p1, device=ggpng,
+               width=10, height=3, scale=2)
+    }
+)
+```
+
+## 発見されたモチーフ間の距離
+
+```{r hist, echo=FALSE}
+renderPlot(.reactive()$p2, width=2000, height=800, res=200)
+
+downloadHandler(
+    filename = function(){
+        sprintf('%s-w%d-s%d-hist.png', input$query, input$width, input$step)
+    },
+    content = function(file) {
+        ggsave(file, .reactive()$p2, device=ggpng,
                width=10, height=3, scale=2)
     }
 )
