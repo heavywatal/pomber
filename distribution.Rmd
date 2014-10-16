@@ -36,11 +36,11 @@ load('data/chromosomes.rda')
 
 ```{r input, echo=FALSE}
 inputPanel(
-    textInput('query', 'Query motif:', 'GCGCAC'),
+    textInput('query', 'Query motif:', 'CGTGCA'),
     sliderInput('width', 'Window width:',
-                2000, 50000, 10000, 2000),
+                5000, 50000, 20000, 5000),
     sliderInput('step', 'Sliding step:',
-                100, 2000, 1000, 100),
+                500, 5000, 2000, 500),
     sliderInput('start', 'View position:',
                 0, 5500000, 0, 500000),
     sliderInput('range', 'View width:',
@@ -102,14 +102,10 @@ make_query = function(s) PDict(c(s, revcomp(s)))
 .observed = .observed %>>% filter(pos > input$start, pos < .end)
 .breaks = pretty(c(input$start, .end), 20)
 
-#.breaks = seq_len(max(.data$observed) + 1) - 1.5
-#ggplot(.data, aes(observed))+
-#    geom_histogram(breaks=.breaks)
-
-.p1 = ggplot(.data, aes(pos))+
+p1 = ggplot(.data, aes(pos))+
     geom_area(aes(y=observed), fill='#009999')+
     geom_line(aes(y=expected), colour='#FF3300', alpha=0.6)+
-    geom_point(data=.observed, aes(y=-0.5), shape='|')+
+    geom_point(data=.observed, aes(y=-1), shape='|')+
     facet_grid(chr ~ ., labeller=label_both)+
     scale_x_continuous(expand=c(0, 0), breaks=.breaks)+#seq(0, 6e6, 2e5))+
     theme_bw()+
@@ -119,20 +115,42 @@ make_query = function(s) PDict(c(s, revcomp(s)))
                     input$query, revcomp(input$query),
                     input$width, input$step))
 
-.p2 = .observed %>>%
+.lambda = mean(.data$observed)
+.mids = seq(0, max(.data$observed))
+.breaks = .mids - 0.5
+
+p2= ggplot(.data, aes(observed))+
+    geom_histogram(aes(y=..density..), breaks=.breaks, fill='#009999')+
+    geom_line(aes(x=x, y=y), colour='#FF3300',
+              data=data.frame(x=.mids, y=dpois(.mids, .lambda)))+
+    labs(x='motifs per window',
+         title=sprintf('poisson(lambda=%.3f)', .lambda))
+
+.intervals = .observed %>>%
     group_by(chr) %>>%
     arrange(pos) %>>%
-    do(data_frame(distance=diff(.$pos))) %>>%
-    ggplot(aes(distance))+
-    geom_histogram()
+    do(data_frame(distance=diff(.$pos)))
+.breaks = pretty(range(.intervals$distance), 30)
+.bin = diff(.breaks)[1]
+.x = .breaks + .bin / 2
+.y = dexp(.x, 0.25 ^ 6)
 
-list(p1=.p1, p2=.p2)
+p3 = .intervals %>>%
+    ggplot(aes(distance))+
+    geom_histogram(aes(y=..density..), breaks=.breaks, fill='#009999')+
+    geom_line(aes(y=count),
+              data=data_frame(distance=.x, count=.y),
+              colour='#FF3300')+
+    labs(x='distance between motifs',
+         title=sprintf('exp(lambda=%.3f)', .lambda))
+
+list(p1=p1, p2=p2, p3=p3)
 })
 ```
 
-## モチーフの分布
-
 green = observed, red = expected
+
+## モチーフの分布
 
 ```{r plot, echo=FALSE}
 renderPlot(.reactive()$p1, width=3000, height=1200, res=200)
@@ -154,14 +172,30 @@ downloadHandler(
 )
 ```
 
-## 発見されたモチーフ間の距離
+## ウィンドウあたりのモチーフ数
 
-```{r hist, echo=FALSE}
+```{r perwindow, echo=FALSE}
 renderPlot(.reactive()$p2, width=2000, height=800, res=200)
 
 downloadHandler(
     filename = function(){
-        sprintf('%s-w%d-s%d-hist.png', input$query, input$width, input$step)
+        sprintf('%s-w%d-s%d-perwindow.png', input$query, input$width, input$step)
+    },
+    content = function(file) {
+        ggsave(file, .reactive()$p2, device=ggpng,
+               width=10, height=3, scale=2)
+    }
+)
+```
+
+## 発見されたモチーフ間の距離
+
+```{r interval, echo=FALSE}
+renderPlot(.reactive()$p3, width=2000, height=800, res=200)
+
+downloadHandler(
+    filename = function(){
+        sprintf('%s-w%d-s%d-interval.png', input$query, input$width, input$step)
     },
     content = function(file) {
         ggsave(file, .reactive()$p2, device=ggpng,
