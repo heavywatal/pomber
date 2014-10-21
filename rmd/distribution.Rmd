@@ -51,7 +51,14 @@ inputPanel(
 
 ```{r data, echo=FALSE}
 
-make_query = function(s) PDict(c(s, revcomp(s)))
+make_query = function(s) {
+    rc = revcomp(s)
+    if (s == rc) {
+        PDict(s)
+    } else {
+        PDict(c(s, rc))
+    }
+}
 
 .sliding_window = function(.query, .width, .step) {
     .data = ldply(chromosomes, function(.s) {
