@@ -30,13 +30,24 @@ make_windows = function(len, width, step)
     successiveIRanges(rep(width, (len - width) / step + 1), step - width)
 
 load('data/chromosomes.rda')
+
+.weight = alphabetFrequency(chromosomes) %>>%
+    data.frame() %>>%
+    select(matches('[ATGCN]')) %>>%
+    summarise_each(funs(sum))
+.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
+
+.weight = .weight %>>% select(matches('[ATGC]'))
+.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
 ```
 
 ### パラメータ
 
 ```{r input, echo=FALSE}
 inputPanel(
-    textInput('query', 'Query motif:', 'CGTGCA'),
+    textInput('query', 'Query motif (length > 3):', 'CGTGCA'),
     sliderInput('width', 'Window width:',
                 5000, 50000, 20000, 5000),
     sliderInput('step', 'Sliding step:',
@@ -99,6 +110,10 @@ make_query = function(s) {
 
 .reactive = reactive({
 
+if (nchar(input$query) < 4) {
+    return (NULL)
+}
+
 .query = make_query(input$query)
 .data = .sliding_window(.query, input$width, input$step)
 .observed = .observe(.query)
@@ -121,6 +136,8 @@ p1 = ggplot(.data, aes(pos))+
                     input$query, revcomp(input$query),
                     input$width, input$step))
 
+.data = .data %>>% filter(str_detect(chr, '^I+$'))
+.observed = .observed %>>% filter(str_detect(chr, '^I+$'))
 .lambda = mean(.data$observed)
 .mids = seq(0, max(.data$observed))
 .breaks = .mids - 0.5
@@ -162,7 +179,7 @@ list(p1=p1, p2=p2, p3=p3)
 ### モチーフの分布
 
 ```{r plot, echo=FALSE}
-renderPlot(.reactive()$p1, width=3000, height=1200, res=200)
+renderPlot(.reactive()$p1, width=3000, height=1600, res=200)
 
 #https://github.com/hadley/ggplot2/pull/939
 ggpng = function(..., width, height) {
