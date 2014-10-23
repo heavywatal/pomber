@@ -6,15 +6,6 @@ doMC::registerDoMC(min(parallel::detectCores(), 12))
 revcomp = function(x)
     x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
 
-make_query = function(s) {
-    rc = revcomp(s)
-    if (s == rc) {
-        PDict(s)
-    } else {
-        PDict(c(s, rc))
-    }
-}
-
 load('data/chromosomes.rda')
 #########1#########2#########3#########4#########5#########6#########7#########
 
@@ -34,7 +25,7 @@ if (.shuffle) {
     .seq = .seq[sample(length(.seq))] %>>% (? .)
 }
 
-.nucs = c('A', 'C', 'G', 'T')
+.nucs = c('A', 'C', 'G', 'T', 'N')
 .nucl_freq = .seq %>>%
     alphabetFrequency(as.prob=TRUE) %>>%
     `[`(.nucs) %>>% (? .)
@@ -42,22 +33,30 @@ if (.shuffle) {
     mlply(paste0) %>>% unlist() %>>% (? head(.))
 names(.motifs) = .motifs
 
-.data = ldply(.motifs, function(s) {
-    .query = make_query(s)
-    .prob = .query@dict0 %>>%
-        as.character() %>>%
+.data = ldply(.motifs, function(.query) {
+    rc = revcomp(.query)
+    .obs = if (.query == rc) {
+        .q = .query
+        countPattern(.query, .seq)
+    } else {
+        .q = c(.query, rc)
+        countPattern(.query, .seq) +
+        countPattern(rc, .seq)
+    }
+    .prob = .q %>>%
         strsplit('') %>>%
         llply(paste, collapse='*') %>>%
         unlist() %>>%
         paste(collapse='+')# %>>% (? .)
-    .gc = sum(alphabetFrequency(DNAString(s))[c('G', 'C')])
+    .gc = sum(alphabetFrequency(DNAString(.query))[c('G', 'C')])
     .nucl_freq %>>% t() %>>% data.frame() %>>%
         transmute_(p=.prob) %>>%
-        mutate(expected = p * (.width - width(.query)[1] + 1)) %>>%
-        mutate(observed = sum(countPDict(.query, .seq)), GC=.gc)
+        mutate(expected = p * (.width - nchar(.query) + 1)) %>>%
+        mutate(observed = .obs, GC=.gc)
 }, .id='query', .parallel=TRUE) %>>% tbl_df() %>>% (? .)
 
 .data %>>% summarise_each(funs(sum))
+.data %>>% filter(observed < expected)
 
 .range = range(.data$expected) %>>% (? .)
 .data %>>%
