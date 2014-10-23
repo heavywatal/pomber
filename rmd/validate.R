@@ -16,6 +16,7 @@ load('data/chromosomes.rda')
 .shuffle = FALSE
 
 .seq = chromosomes[[.chr]][.start:(.start + .width - 1)]
+.seq %>>% as.character()
 
 if (.remove_N) {
     .chars = .seq %>>% as.character() %>>% strsplit('') %>>% unlist()
@@ -33,35 +34,36 @@ if (.shuffle) {
     mlply(paste0) %>>% unlist() %>>% (? head(.))
 names(.motifs) = .motifs
 
-.data = ldply(.motifs, function(.query) {
-    rc = revcomp(.query)
-    .obs = if (.query == rc) {
-        .q = .query
-        countPattern(.query, .seq)
-    } else {
-        .q = c(.query, rc)
-        countPattern(.query, .seq) +
-        countPattern(rc, .seq)
-    }
-    .prob = .q %>>%
+.raw = ldply(.motifs, function(.query) {
+    .obs = countPattern(.query, .seq)
+    .prob = .query %>>%
         strsplit('') %>>%
         llply(paste, collapse='*') %>>%
         unlist() %>>%
         paste(collapse='+')# %>>% (? .)
-    .gc = sum(alphabetFrequency(DNAString(.query))[c('G', 'C')])
+    .qalpha = alphabetFrequency(DNAString(.query))
     .nucl_freq %>>% t() %>>% data.frame() %>>%
         transmute_(p=.prob) %>>%
         mutate(expected = p * (.width - nchar(.query) + 1)) %>>%
-        mutate(observed = .obs, GC=.gc)
+        mutate(observed = .obs, GC=sum(.qalpha[c('G', 'C')]), N=sum(.qalpha['N']))
 }, .id='query', .parallel=TRUE) %>>% tbl_df() %>>% (? .)
 
-.data %>>% summarise_each(funs(sum))
-.data %>>% filter(observed < expected)
+.data = .raw %>>%
+    mutate(query=as.character(query)) %>>%
+    arrange(query) %>>%
+    mutate(query=query %>>% revcomp() %>>% pmin(query)) %>>%
+    group_by(query) %>>%
+    summarise_each(funs(sum)) %>>%
+    mutate(GC=GC/2, N=N/2) %>>%
+    (? summarise_each(., funs(sum), -query))
 
-.range = range(.data$expected) %>>% (? .)
+.data %>>% arrange(desc(observed))
+.data %>>% filter(observed < expected)
+.data %>>% filter(observed > expected)
+
+.range = range(.rc$expected) %>>% (? .)
 .data %>>%
     ggplot(aes(expected, observed))+
-    geom_point(aes(colour=GC), alpha=0.4)+
+    geom_point(aes(colour=N), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
     theme_bw()
-
