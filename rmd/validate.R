@@ -36,34 +36,33 @@ names(.motifs) = .motifs
 
 .raw = ldply(.motifs, function(.query) {
     .obs = countPattern(.query, .seq)
-    .prob = .query %>>%
-        strsplit('') %>>%
-        llply(paste, collapse='*') %>>%
+    .formula = strsplit(.query, '') %>>%
         unlist() %>>%
-        paste(collapse='+')# %>>% (? .)
-    .qalpha = alphabetFrequency(DNAString(.query))
+        paste(collapse='*')
     .nucl_freq %>>% t() %>>% data.frame() %>>%
-        transmute_(p=.prob) %>>%
-        mutate(expected = p * (.width - nchar(.query) + 1)) %>>%
-        mutate(observed = .obs, GC=sum(.qalpha[c('G', 'C')]), N=sum(.qalpha['N']))
+        transmute_(p=.formula) %>>%
+        mutate(expected = p * (.width - nchar(.query) + 1),
+               observed = .obs)
 }, .id='query', .parallel=TRUE) %>>% tbl_df() %>>% (? .)
 
 .data = .raw %>>%
     mutate(query=as.character(query)) %>>%
     arrange(query) %>>%
-    mutate(query=query %>>% revcomp() %>>% pmin(query)) %>>%
+    mutate(query=pmin(query, query %>>% revcomp())) %>>%
     group_by(query) %>>%
     summarise_each(funs(sum)) %>>%
-    mutate(GC=GC/2, N=N/2) %>>%
+    cbind(alphabetFrequency(DNAStringSet(.$query)) %>>%
+        data.frame() %>>%
+        select(matches('[ACGTN]'))) %>>%
+    tbl_df() %>>%
     (? summarise_each(., funs(sum), -query))
 
 .data %>>% arrange(desc(observed))
-.data %>>% filter(observed < expected)
-.data %>>% filter(observed > expected)
 
-.range = range(.rc$expected) %>>% (? .)
+.range = range(.data$expected) %>>% (? .)
 .data %>>%
     ggplot(aes(expected, observed))+
     geom_point(aes(colour=N), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
-    theme_bw()
+    theme_bw()+
+    scale_colour_gradient(low='#00CCCC', high='#000000')
