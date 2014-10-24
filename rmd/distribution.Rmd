@@ -72,14 +72,13 @@ make_query = function(s) {
 }
 
 .sliding_window = function(.query, .width, .step) {
-    .data = ldply(chromosomes, function(.s) {
-        .windows = make_windows(length(.s), .width, .step)
-        .nucl_count = Views(.s, .windows) %>>%
+    .data = ldply(chromosomes, function(.chr) {
+        .windows = make_windows(length(.chr), .width, .step)
+        .nucl_count = Views(.chr, .windows) %>>%
             alphabetFrequency(as.prob=TRUE) %>>%
             data.frame() %>>% tbl_df() %>>%# (? .) %>>%
-            select(A, C, G, T, N) %>>%
-            mutate(AT=A + T, GC=C + G)
-        .hit = matchPDict(.query, .s) %>>% Biostrings::unlist()
+            select(A, C, G, T, N)
+        .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
         data.frame(
             pos=end(.windows) - .width / 2,
             .nucl_count,
@@ -94,9 +93,11 @@ make_query = function(s) {
         unlist() %>>%
         paste(collapse='+')
 
+    .len_query = width(.query)[1]
     .data = .data %>>%
         mutate_(p = .prob) %>>%
-        mutate(expected = p * (.width - width(.query)[1] + 1))
+        mutate(p_given_N = ifelse(p>0, p / (1 - N)^.len_query, 0)) %>>%
+        mutate(expected = p_given_N * (.width - .len_query + 1))
 }
 
 .observe = function(.query) {
@@ -138,8 +139,8 @@ p1 = ggplot(.data, aes(pos))+
 
 .data = .data %>>% filter(str_detect(chr, '^I+$'))
 .observed = .observed %>>% filter(str_detect(chr, '^I+$'))
-.lambda = mean(.data$observed)
-.mids = seq(0, max(.data$observed))
+.lambda = mean(.data$expected)
+.mids = seq(0, max(.data$observed, .data$expected))
 .breaks = .mids - 0.5
 
 p2= ggplot(.data, aes(observed))+

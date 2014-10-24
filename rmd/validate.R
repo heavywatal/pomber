@@ -30,7 +30,7 @@ if (.shuffle) {
 .nucl_freq = .seq %>>%
     alphabetFrequency(as.prob=TRUE) %>>%
     `[`(.nucs) %>>% (? .)
-.motifs = expand.grid(.nucs %>>% list() %>>% rep(4)) %>>%
+.motifs = expand.grid(.nucs %>>% list() %>>% rep(5)) %>>%
     mlply(paste0) %>>% unlist() %>>% (? head(.))
 names(.motifs) = .motifs
 
@@ -59,8 +59,27 @@ names(.motifs) = .motifs
 
 .data %>>% arrange(desc(observed))
 
+.data %>>%
+    group_by(XXXN=N>0) %>>%
+    tally(wt=p)
+(1.0 - .nucl_freq['N']) ^ 4
+
 .range = range(.data$expected) %>>% (? .)
 .data %>>%
+    ggplot(aes(expected, observed))+
+    geom_point(aes(colour=N), alpha=0.4)+
+    geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
+    theme_bw()+
+    scale_colour_gradient(low='#00CCCC', high='#000000')
+
+.given_N = .data %>>%
+    filter(N == 0) %>>%
+    mutate(expected = expected / sum(p))
+
+.given_N %>>% filter(observed > expected)
+
+.range = range(.given_N$expected) %>>% (? .)
+.given_N %>>%
     ggplot(aes(expected, observed))+
     geom_point(aes(colour=N), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
