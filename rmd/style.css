@@ -9,3 +9,12 @@ body .main-container {
 .jslider {
     min-width: 360px;
 }
+
+label.checkbox {
+    margin-left: 2em;
+}
+
+.dataTables_paginate li {
+    display: inline-block;
+    margin: 4px;
+}
