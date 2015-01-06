@@ -60,12 +60,13 @@ names(.motifs) = .motifs
 .data %>>% arrange(desc(observed))
 
 .data %>>%
-    group_by(XXXN=N>0) %>>%
+    group_by(XXXXN=N>0) %>>%
     tally(wt=p)
-(1.0 - .nucl_freq['N']) ^ 4
+(1.0 - .nucl_freq['N']) ^ 5
 
 .range = range(.data$expected) %>>% (? .)
 .data %>>%
+    filter(N<5) %>>%
     ggplot(aes(expected, observed))+
     geom_point(aes(colour=N), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
@@ -81,7 +82,13 @@ names(.motifs) = .motifs
 .range = range(.given_N$expected) %>>% (? .)
 .given_N %>>%
     ggplot(aes(expected, observed))+
-    geom_point(aes(colour=N), alpha=0.4)+
+    geom_point(aes(colour=G+C), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
     theme_bw()+
     scale_colour_gradient(low='#00CCCC', high='#000000')
+
+.given_N %>>%
+    arrange(observed/expected)
+
+.given_N %>>%
+    arrange(desc(observed/expected))

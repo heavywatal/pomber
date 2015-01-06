@@ -143,7 +143,7 @@ p1 = ggplot(.data, aes(pos))+
 .mids = seq(0, max(.data$observed, .data$expected))
 .breaks = .mids - 0.5
 
-p2= ggplot(.data, aes(observed))+
+p2 = ggplot(.data, aes(observed))+
     geom_histogram(aes(y=..density..), breaks=.breaks, fill='#009999')+
     geom_line(aes(x=x, y=y), colour='#FF3300',
               data=data.frame(x=.mids, y=dpois(.mids, .lambda)))+
