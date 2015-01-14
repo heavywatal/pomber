@@ -1,22 +1,49 @@
+---
+title: "Observed more/less than expected?"
+output:
+  html_document:
+    toc: true
+---
+
+```{r library, echo=FALSE, message=FALSE}
+library(stringr)
+library(pipeR)
+library(plyr)
+library(dplyr)
+library(ggplot2)
 library(Biostrings)
 library(GenomicRanges)
 library(doMC)
 doMC::registerDoMC(min(parallel::detectCores(), 12))
+```
 
-revcomp = function(x)
-    x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
-
-load('data/ensembl.rda')
-#########1#########2#########3#########4#########5#########6#########7#########
-
+## パラメータ
+```{r param}
 .chr = 1
+.size = 5
 .start = 200000
 .width = 100000
 .remove_N = FALSE
 .shuffle = FALSE
+.refseq = TRUE
+```
 
-.seq = chromosomes[[.chr]][.start:(.start + .width - 1)]
-.seq %>>% as.character()
+## 配列データ
+```{r sequence}
+if (.refseq) {
+    chromosomes = list.files('distribution', pattern='.*\\.chromosome\\.I+\\.fa\\.gz', full.names=TRUE) %>>%
+        readDNAStringSet()
+    names(chromosomes) = names(chromosomes) %>>% str_extract('^I+')
+} else {  # majority
+    .data_dir = '~/Dropbox/cache/ilabo/pombe'
+    .patt = '.*([^/]+)\\.bin\\.fa\\.gz$'
+    .seq_files = list.files(.data_dir, .patt, full.names=TRUE) %>>% (? head(.))
+    names(.seq_files) = str_match(.seq_files, .patt)[,2]
+    chromosomes = llply(.seq_files, function(.infile) {
+        readDNAStringSet(.infile)[[1]]
+    }) %>>% DNAStringSet()
+}
+.seq = chromosomes[[.chr]][.start:(.start + .width - 1)] %>>% (? .)
 
 if (.remove_N) {
     .chars = .seq %>>% as.character() %>>% strsplit('') %>>% unlist()
@@ -30,8 +57,17 @@ if (.shuffle) {
 .nucl_freq = .seq %>>%
     alphabetFrequency(as.prob=TRUE) %>>%
     `[`(.nucs) %>>% (? .)
-.motifs = expand.grid(.nucs %>>% list() %>>% rep(5)) %>>%
-    mlply(paste0) %>>% unlist() %>>% (? head(.))
+```
+
+かなりAT-rich。
+
+## 処理
+
+あらゆるモチーフの出現を数える
+
+```{r count}
+.motifs = expand.grid(.nucs %>>% list() %>>% rep(.size)) %>>%
+    mlply(paste0) %>>% unlist()
 names(.motifs) = .motifs
 
 .raw = ldply(.motifs, function(.query) {
@@ -44,6 +80,13 @@ names(.motifs) = .motifs
         mutate(expected = p * (.width - nchar(.query) + 1),
                observed = .obs)
 }, .id='query', .parallel=TRUE) %>>% tbl_df() %>>% (? .)
+```
+
+相補的なモチーフを統合する
+
+```{r revcomp}
+revcomp = function(x)
+    x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
 
 .data = .raw %>>%
     mutate(query=as.character(query)) %>>%
@@ -55,16 +98,25 @@ names(.motifs) = .motifs
         data.frame() %>>%
         select(matches('[ACGTN]'))) %>>%
     tbl_df() %>>%
-    (? summarise_each(., funs(sum), -query))
+    (? summarise_each(., funs(sum), p, expected, observed))
 
 .data %>>% arrange(desc(observed))
+```
 
+Nを含むモチーフについて
+
+```{r ambiguous}
 .data %>>%
     group_by(XXXXN=N>0) %>>%
     tally(wt=p)
-(1.0 - .nucl_freq['N']) ^ 5
 
-.range = range(.data$expected) %>>% (? .)
+(1.0 - .nucl_freq['N']) ^ .size
+```
+
+## Figure
+
+```{r plot}
+.range = range(0, .data$expected)
 .data %>>%
     filter(N<5) %>>%
     ggplot(aes(expected, observed))+
@@ -72,23 +124,29 @@ names(.motifs) = .motifs
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
     theme_bw()+
     scale_colour_gradient(low='#00CCCC', high='#000000')
+```
 
+Nが含まれないモチーフのみで計算してみる
+
+```{r data_wo_N}
 .given_N = .data %>>%
     filter(N == 0) %>>%
-    mutate(expected = expected / sum(p))
+    mutate(expected = expected / sum(p)) %>>%
+    (? summarise_each(., funs(sum), p, expected, observed))
 
-.given_N %>>% filter(observed > expected)
+.given_N %>>%
+    arrange(observed/expected) %>%
+    each(head, tail)(., n=16)
+```
 
-.range = range(.given_N$expected) %>>% (? .)
+```{r plot_wo_N}
+.range = range(0, .given_N$expected)
 .given_N %>>%
     ggplot(aes(expected, observed))+
     geom_point(aes(colour=G+C), alpha=0.4)+
     geom_line(data=data_frame(expected=.range, observed=.range), colour='#FF3300')+
     theme_bw()+
     scale_colour_gradient(low='#00CCCC', high='#000000')
+```
 
-.given_N %>>%
-    arrange(observed/expected)
-
-.given_N %>>%
-    arrange(desc(observed/expected))
+AT-richなのでGCが低いほど期待値も観察値も高い
