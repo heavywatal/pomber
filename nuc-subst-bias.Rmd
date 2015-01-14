@@ -1,0 +1,90 @@
+---
+title: "Nucleotide substitution bias in S. pombe"
+output:
+  html_document:
+    toc: true
+---
+
+```{r library, echo=FALSE, message=FALSE}
+library(stringr)
+library(pipeR)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+## Data
+
+C++ libsequece で処理しておいたデータを読み込む
+
+```{r data}
+.indir = file.path('~/Dropbox/cache/ilabo/pombe')
+.snp = ldply(list.files(.indir, 'chr.*\\.snp\\.txt\\.gz', full.names=TRUE), read.delim)
+head(.snp)
+```
+
+## Substitution matrix
+
+多数派を祖先型、少数派を派生型と見なして頻度を集計。
+purine同士(A-G)、pyrimidine同士(C-T)のtransitionが多く、標準的な傾向。
+それ以外だとA-T間がやや高め。
+
+```{r total}
+.data = .snp %>>%
+    group_by(major_allele, minor_allele) %>>%
+    tally() %>>%
+    ungroup() %>>%
+    mutate(n=n/sum(n))
+.p = ggplot(.data, aes(x=major_allele, y=minor_allele, fill=n))
+.p = .p + geom_tile()
+.p = .p + geom_text(aes(label=sprintf('%.3f', n)))
+.p = .p + scale_fill_gradient(low='white', high='orange', limits=c(0, max(.data$n)))
+.p = .p + scale_x_discrete(expand = c(0,0)) + scale_y_discrete(expand = c(0,0))
+.p = .p + theme(panel.grid=element_blank(), panel.background=element_blank())
+.p = .p + theme(axis.ticks=element_blank())
+.p
+```
+
+## Rare allele sites
+
+少数派が極度に少ない座位だけを集計してみても傾向はほとんど変わらない。
+分子実験のノイズはそれほど大きくなさそう。
+
+```{r rare_allele}
+.data = .snp %>>%
+    filter(minor_freq < 5) %>>%
+    group_by(major_allele, minor_allele, minor_freq) %>>%
+    tally() %>>%
+    group_by(minor_freq) %>>%
+    mutate(n=n/sum(n))
+.p = ggplot(.data, aes(x=major_allele, y=minor_allele, fill=n))
+.p = .p + geom_tile()
+.p = .p + scale_fill_gradient(low='white', high='orange', limits=c(0, max(.data$n)))
+.p = .p + scale_x_discrete(expand = c(0,0)) + scale_y_discrete(expand = c(0,0))
+.p = .p + geom_text(aes(label=sprintf('%.3f', n)))
+.p = .p + facet_wrap(~minor_freq)
+.p = .p + theme(panel.grid=element_blank(), panel.background=element_blank())
+.p = .p + theme(axis.ticks=element_blank())
+.p
+```
+
+## From [GC] to [AT]
+
+[GC]から[AT]への変異のほうが多く起こっており、ほっとくとAT-richになるっぽい。
+現にゲノム内の塩基組成はだいたい [AT]:[GC] = 64:36 のAT-rich。
+
+```{r purine}
+.snp %>>%
+    mutate(major_allele=ifelse(str_detect(major_allele, '[AT]'), 'AT', 'GC'),
+        minor_allele=ifelse(str_detect(minor_allele, '[AT]'), 'AT', 'GC')) %>>%
+    filter(major_allele!=minor_allele) %>>%
+    group_by(minor_freq, major_allele, minor_allele) %>>%
+    tally() %>>% ungroup() %>>%
+    mutate(major_allele=0) %>>%
+    spread(minor_allele, n) %>>%
+    dplyr::select(-major_allele) %>>%
+    mutate(AT_ratio=AT / (AT + GC)) %>>% (? .) %>>%
+    summarise_each(funs(sum), AT, GC) %>>%
+    mutate(AT_ratio=AT / (AT + GC))
+```
