@@ -2,7 +2,6 @@
 title: "Motif occurrence in S. pombe reference genome"
 output:
   html_document:
-    css: style.css
 runtime: shiny
 ---
 
@@ -37,7 +36,7 @@ make_query = function(s) {
 ```
 
 ```{r data, echo=FALSE}
-.cache = 'data/coefvar-ref.csv.gz'
+.cache = 'coefvar-ref.csv.gz'
 if (file.exists(.cache)) {
     .data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
 } else {

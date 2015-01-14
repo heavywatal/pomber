@@ -2,7 +2,6 @@
 title: "Motif distribution on S. pombe genome"
 output:
   html_document:
-    css: style.css
     fig_height: 6
     fig_width: 12
 runtime: shiny
@@ -29,7 +28,7 @@ complement = function(x)
 make_windows = function(len, width, step)
     successiveIRanges(rep(width, (len - width) / step + 1), step - width)
 
-load('data/ensembl.rda')
+load('ensembl.rda')
 
 if (FALSE) {
     .weight = alphabetFrequency(chromosomes) %>>%
