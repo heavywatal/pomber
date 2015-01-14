@@ -6,7 +6,7 @@ doMC::registerDoMC(min(parallel::detectCores(), 12))
 revcomp = function(x)
     x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
 
-load('data/chromosomes.rda')
+load('data/ensembl.rda')
 #########1#########2#########3#########4#########5#########6#########7#########
 
 .chr = 1

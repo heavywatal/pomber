@@ -1,5 +1,5 @@
 ---
-title: "Motif occurrence in sliding windows in S. pombe"
+title: "Motif occurrence in S. pombe reference genome"
 output:
   html_document:
     css: style.css
@@ -52,12 +52,12 @@ make_query = function(s) {
 
 ```{r data, echo=FALSE}
 #setwd('~/git/pomber/rmd')
-.cache = 'data/coefvar.csv.gz'
+.cache = 'data/coefvar-ref.csv.gz'
 if (file.exists(.cache)) {
     .data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
 } else {
 
-load('data/chromosomes.rda')
+load('data/ensembl.rda')
 
 .weight = alphabetFrequency(chromosomes) %>>%
     data.frame() %>>%
@@ -116,11 +116,11 @@ write.table(.data, gzfile(.cache), sep='\t', row.names=FALSE, quote=FALSE)
 
 ```{r input, echo=FALSE}
 .chrs = unique(.data$chr)
-#.chrs = .chrs[.chrs != 'without_N']
+.chrs = .chrs[.chrs != 'without_N']
 names(.chrs) = .chrs
 inputPanel(
     checkboxGroupInput('chr', 'Chromosome:', .chrs, .chrs),
-    sliderInput('ubound', 'Display x max:', 5, 50, 50, 5)
+    sliderInput('ubound', 'Display x max:', 5, 150, 150, 5)
 )
 ```
 
@@ -138,12 +138,14 @@ renderPlot(filtered() %>>%
     theme_bw()
 )
 
-renderPlot(filtered() %>>%
-    ggplot(aes(mean, sd))+
-    geom_point(aes(colour=chr), alpha=0.6)+
-    geom_line(data=data_frame(mean=.range(), sd=.range()))+
-    theme_bw()
-)
+if (FALSE) {
+    renderPlot(filtered() %>>%
+        ggplot(aes(mean, sd))+
+        geom_point(aes(colour=chr), alpha=0.6)+
+        geom_line(data=data_frame(mean=.range(), sd=.range()))+
+        theme_bw()
+    )
+}
 
 renderDataTable(filtered())
 #renderDataTable(filtered(), options=list(order=c(4, 'desc')))

@@ -29,18 +29,20 @@ complement = function(x)
 make_windows = function(len, width, step)
     successiveIRanges(rep(width, (len - width) / step + 1), step - width)
 
-load('data/chromosomes.rda')
+load('data/ensembl.rda')
 
-.weight = alphabetFrequency(chromosomes) %>>%
-    data.frame() %>>%
-    select(matches('[ATGCN]')) %>>%
-    summarise_each(funs(sum))
-.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
+if (FALSE) {
+    .weight = alphabetFrequency(chromosomes) %>>%
+        data.frame() %>>%
+        select(matches('[ATGCN]')) %>>%
+        summarise_each(funs(sum))
+    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+    chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
 
-.weight = .weight %>>% select(matches('[ATGC]'))
-.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
+    .weight = .weight %>>% select(matches('[ATGC]'))
+    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+    chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
+}
 ```
 
 ### パラメータ
