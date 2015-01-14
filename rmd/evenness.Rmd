@@ -14,13 +14,9 @@ library(pipeR)
 library(plyr)
 library(dplyr)
 library(ggplot2)
-library(Biostrings)
-library(GenomicRanges)
-library(doMC)
-doMC::registerDoMC(min(parallel::detectCores(), 12))
 ```
 
-```{r static, echo=FALSE}
+```{r function, echo=FALSE}
 revcomp = function(x)
     x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
 
@@ -38,37 +34,36 @@ make_query = function(s) {
         PDict(c(s, rc))
     }
 }
+```
+
+```{r data, echo=FALSE}
+.cache = 'data/coefvar-ref.csv.gz'
+if (file.exists(.cache)) {
+    .data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
+} else {
+
+library(Biostrings)
+library(GenomicRanges)
+library(doMC)
+doMC::registerDoMC(min(parallel::detectCores(), 12))
+
+setwd('~/git/pomber/rmd')
+load('data/ensembl.rda')
+
+.weight = .weight %>>% select(matches('[ATGC]'))
+.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
 
 .sliding_window = function(.query, .width, .step) {
     .data = ldply(chromosomes, function(.chr) {
         .windows = make_windows(length(.chr), .width, .step)
         .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
         data.frame(
-            observed=countOverlaps(.windows, .hit)
+            observed=countOverlaps(.windows, .hit),
+            stringsAsFactors=FALSE
         )
-    }, .id='chr') %>>% tbl_df()# %>>% (? .)
+    }, .id='chr')
 }
-```
-
-```{r data, echo=FALSE}
-#setwd('~/git/pomber/rmd')
-.cache = 'data/coefvar-ref.csv.gz'
-if (file.exists(.cache)) {
-    .data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
-} else {
-
-load('data/ensembl.rda')
-
-.weight = alphabetFrequency(chromosomes) %>>%
-    data.frame() %>>%
-    select(matches('[ATGCN]')) %>>%
-    summarise_each(funs(sum))
-.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
-
-.weight = .weight %>>% select(matches('[ATGC]'))
-.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
 
 if (FALSE) {
     .query = 'ATGCGC'
@@ -95,18 +90,28 @@ names(.oligos) = .oligos
 .width = 20000
 .step = 20000
 
-.data = mdply(.queries, function(motif) {
+.raw = mdply(.queries, function(motif) {
     .query = strsplit(motif, '\\|') %>>% unlist() %>>% PDict()
-    .sliding_window(.query, .width, .step) %>>%
-    group_by(chr) %>>%
-    summarise(mean=mean(observed), var=var(observed), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean)
+    .sliding_window(.query, .width, .step)
 }, .id='motif', .parallel=TRUE)
+
+.each_chr = .raw %>>%
+    group_by(motif, chr) %>>%
+    summarise(mean=mean(observed), var=var(observed), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean)
+
+.total_genome = .raw %>>%
+    filter(grepl('I', chr)) %>>%
+    group_by(motif) %>>%
+    summarise(mean=mean(observed), var=var(observed), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean) %>>%
+    mutate(chr='total')
+
+.data = bind_rows(.each_chr, .total_genome) %>>%
+    arrange(motif)
 
 if (FALSE) {
     .data %>>%
-        tbl_df() %>>%
         filter(grepl('I', chr)) %>>%
-        arrange(cv) %>%
+        arrange(vm_ratio) %>%
         each(head, tail)(.)
 }
 
@@ -115,18 +120,22 @@ write.table(.data, gzfile(.cache), sep='\t', row.names=FALSE, quote=FALSE)
 ```
 
 ```{r input, echo=FALSE}
-.chrs = unique(.data$chr)
-.chrs = .chrs[.chrs != 'without_N']
+.chrs = unique(as.character(.data$chr))
 names(.chrs) = .chrs
 inputPanel(
-    checkboxGroupInput('chr', 'Chromosome:', .chrs, .chrs),
+    checkboxGroupInput('chr', 'Chromosome:', .chrs, 'total'),
     sliderInput('ubound', 'Display x max:', 5, 150, 150, 5)
 )
 ```
 
+塩基配列がランダムな並びであれば、あるモチーフが一定区間内にいくつ出現するか、という数は平均=分散のポアソン分布に従うと考えられる。
+分散/平均 (variance-mean ratio) が小さいほど一様分布、1のときランダム分布、大きいほど集中分布になる。
+下図の黒い直線は分散=平均を結んだもの。
+
 ```{r render, echo=FALSE}
 filtered = reactive({
-    subset(.data, chr %in% input$chr) %>>% filter(mean < input$ubound)
+    subset(.data, chr %in% input$chr) %>>%
+        filter(mean < input$ubound)
 })
 
 .range = reactive(range(filtered()$mean))
@@ -147,6 +156,6 @@ if (FALSE) {
     )
 }
 
-renderDataTable(filtered())
-#renderDataTable(filtered(), options=list(order=c(4, 'desc')))
+#renderDataTable(filtered())
+renderDataTable(filtered(), options=list(order=c(5, 'asc')))
 ```
