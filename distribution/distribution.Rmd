@@ -1,5 +1,5 @@
 ---
-title: "Motif distribution on S. pombe genome"
+title: "Motif distribution in S. pombe reference genome"
 output:
   html_document:
     fig_height: 6
@@ -8,7 +8,6 @@ runtime: shiny
 ---
 
 ```{r library, echo=FALSE, message=FALSE}
-options(width = 6000)
 library(stringr)
 library(pipeR)
 library(plyr)
@@ -18,29 +17,64 @@ library(Biostrings)
 library(GenomicRanges)
 ```
 
-```{r static, echo=FALSE}
+```{r function, echo=FALSE}
 revcomp = function(x)
     x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
 
-complement = function(x)
-    chartr('ATGC', 'TACG', x)
+make_query = function(s) {
+    rc = revcomp(s)
+    if (s == rc) {
+        PDict(s)
+    } else {
+        PDict(c(s, rc))
+    }
+}
 
 make_windows = function(len, width, step)
     successiveIRanges(rep(width, (len - width) / step + 1), step - width)
 
-load('ensembl.rda')
+sliding_window = function(.query, .width, .step) {
+    .data = ldply(chromosomes, function(.chr) {
+        .windows = make_windows(length(.chr), .width, .step)
+        .nucl_count = Views(.chr, .windows) %>>%
+            alphabetFrequency(as.prob=TRUE) %>>%
+            `[`(,c('A', 'C', 'G', 'T', 'N'))
+        .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
+        data.frame(
+            pos=end(.windows) - .width / 2,
+            .nucl_count,
+            observed=countOverlaps(.windows, .hit),
+            stringsAsFactors=FALSE
+          )
+    }, .id='chr') %>>% tbl_df()# %>>% (? .)
 
-if (FALSE) {
-    .weight = alphabetFrequency(chromosomes) %>>%
-        data.frame() %>>%
-        select(matches('[ATGCN]')) %>>%
-        summarise_each(funs(sum))
-    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-    chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
+    .prob = .query@dict0 %>>%
+        as.character() %>>%
+        strsplit('') %>>%
+        llply(paste, collapse='*') %>>%
+        unlist() %>>%
+        paste(collapse='+')
 
-    .weight = .weight %>>% select(matches('[ATGC]'))
-    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-    chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
+    .len_query = width(.query)[1]
+    .data %>>%
+        mutate_(p = .prob) %>>%
+        mutate(p_given_N = ifelse(p>0, p / (1 - N)^.len_query, 0)) %>>%
+        mutate(expected = p_given_N * (.width - .len_query + 1))
+}
+
+observe = function(.query) {
+    ldply(chromosomes, function(.s) {
+        matchPDict(.query, .s) %>>%
+            Biostrings::unlist() %>>%
+            start() %>>%
+            (data.frame(pos=.))
+    }, .id='chr') %>>% tbl_df()# %>>% (? .)
+}
+
+#https://github.com/hadley/ggplot2/pull/939
+ggpng = function(..., width, height) {
+    grDevices::png(..., width = width, 
+        height = height, res = 300, units = "in")
 }
 ```
 
@@ -62,52 +96,21 @@ inputPanel(
 ```
 
 ```{r data, echo=FALSE}
+chromosomes = list.files(pattern='.*\\.chromosome\\.I+\\.fa\\.gz', full.names=TRUE) %>>%
+    readDNAStringSet()
+names(chromosomes) = names(chromosomes) %>>% str_extract('^I+')
 
-make_query = function(s) {
-    rc = revcomp(s)
-    if (s == rc) {
-        PDict(s)
-    } else {
-        PDict(c(s, rc))
-    }
-}
+if (FALSE) {
+    .weight = alphabetFrequency(chromosomes) %>>%
+        data.frame() %>>%
+        select(matches('[ATGCN]')) %>>%
+        summarise_each(funs(sum))
+    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+    chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
 
-.sliding_window = function(.query, .width, .step) {
-    .data = ldply(chromosomes, function(.chr) {
-        .windows = make_windows(length(.chr), .width, .step)
-        .nucl_count = Views(.chr, .windows) %>>%
-            alphabetFrequency(as.prob=TRUE) %>>%
-            data.frame() %>>% tbl_df() %>>%# (? .) %>>%
-            select(A, C, G, T, N)
-        .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
-        data.frame(
-            pos=end(.windows) - .width / 2,
-            .nucl_count,
-            observed=countOverlaps(.windows, .hit)
-          )
-    }, .id='chr') %>>% tbl_df()# %>>% (? .)
-
-    .prob = .query@dict0 %>>%
-        as.character() %>>%
-        strsplit('') %>>%
-        llply(paste, collapse='*') %>>%
-        unlist() %>>%
-        paste(collapse='+')
-
-    .len_query = width(.query)[1]
-    .data = .data %>>%
-        mutate_(p = .prob) %>>%
-        mutate(p_given_N = ifelse(p>0, p / (1 - N)^.len_query, 0)) %>>%
-        mutate(expected = p_given_N * (.width - .len_query + 1))
-}
-
-.observe = function(.query) {
-    ldply(chromosomes, function(.s) {
-        matchPDict(.query, .s) %>>%
-            Biostrings::unlist() %>>%
-            start() %>>%
-            (data.frame(pos=.))
-    }, .id='chr') %>>% tbl_df()# %>>% (? .)
+    .weight = .weight %>>% select(matches('[ATGC]'))
+    .null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
+    chromosomes = c(chromosomes, DNAStringSet(c(without_N=.null)))
 }
 
 .reactive = reactive({
@@ -117,8 +120,8 @@ if (nchar(input$query) < 4) {
 }
 
 .query = make_query(input$query)
-.data = .sliding_window(.query, input$width, input$step)
-.observed = .observe(.query)
+.data = sliding_window(.query, input$width, input$step)
+.observed = observe(.query)
 
 .end = min(input$start + input$range, 5.6e6)
 .data = .data %>>% filter(pos > input$start, pos < .end)
@@ -182,12 +185,6 @@ list(p1=p1, p2=p2, p3=p3)
 
 ```{r plot, echo=FALSE}
 renderPlot(.reactive()$p1, width=3000, height=1600, res=200)
-
-#https://github.com/hadley/ggplot2/pull/939
-ggpng = function(..., width, height) {
-    grDevices::png(..., width = width, 
-        height = height, res = 300, units = "in")
-}
 
 downloadHandler(
     filename = function(){

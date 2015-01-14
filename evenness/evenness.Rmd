@@ -15,110 +15,9 @@ library(dplyr)
 library(ggplot2)
 ```
 
-```{r function, echo=FALSE}
-revcomp = function(x)
-    x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
-
-complement = function(x)
-    chartr('ATGC', 'TACG', x)
-
-make_windows = function(len, width, step)
-    successiveIRanges(rep(width, (len - width) / step + 1), step - width)
-
-make_query = function(s) {
-    rc = revcomp(s)
-    if (s == rc) {
-        PDict(s)
-    } else {
-        PDict(c(s, rc))
-    }
-}
-```
-
-```{r data, echo=FALSE}
-.cache = 'coefvar-ref.csv.gz'
-if (file.exists(.cache)) {
-    .data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
-} else {
-
-library(Biostrings)
-library(GenomicRanges)
-library(doMC)
-doMC::registerDoMC(min(parallel::detectCores(), 12))
-
-setwd('~/git/pomber/rmd')
-load('data/ensembl.rda')
-
-.weight = .weight %>>% select(matches('[ATGC]'))
-.null = paste(sample(names(.weight), 2000000, replace=TRUE, .weight), collapse='')
-chromosomes = c(chromosomes, DNAStringSet(c(randomized=.null)))
-
-.sliding_window = function(.query, .width, .step) {
-    .data = ldply(chromosomes, function(.chr) {
-        .windows = make_windows(length(.chr), .width, .step)
-        .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
-        data.frame(
-            observed=countOverlaps(.windows, .hit),
-            stringsAsFactors=FALSE
-        )
-    }, .id='chr')
-}
-
-if (FALSE) {
-    .query = 'ATGCGC'
-    .data = .sliding_window(make_query(.query), .width, .step)
-    .data %>>%
-        group_by(chr) %>>%
-        summarise(mean=mean(observed), var=var(ovserved), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean)
-}
-
-.oligos = strsplit('ATGC', '') %>>%
-    rep(6) %>>%
-    expand.grid() %>>%
-    mlply(function(...) paste0(...)) %>>%
-    unlist(use.names=FALSE)
-names(.oligos) = .oligos
-
-.queries = data_frame(motif=.oligos, revcomp=revcomp(.oligos)) %>>%
-    mutate(motif=pmin(motif, revcomp)) %>>%
-    select(-revcomp) %>>%
-    filter(!duplicated(motif)) %>>%
-    mutate(revcomp=revcomp(motif), motif=ifelse(motif==revcomp, motif, paste(motif, revcomp, sep='|'))) %>>%
-    select(-revcomp)
-
-.width = 20000
-.step = 20000
-
-.raw = mdply(.queries, function(motif) {
-    .query = strsplit(motif, '\\|') %>>% unlist() %>>% PDict()
-    .sliding_window(.query, .width, .step)
-}, .id='motif', .parallel=TRUE)
-
-.each_chr = .raw %>>%
-    group_by(motif, chr) %>>%
-    summarise(mean=mean(observed), var=var(observed), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean)
-
-.total_genome = .raw %>>%
-    filter(grepl('I', chr)) %>>%
-    group_by(motif) %>>%
-    summarise(mean=mean(observed), var=var(observed), sd=sd(observed), vm_ratio=var/mean, cv=sd/mean) %>>%
-    mutate(chr='total')
-
-.data = bind_rows(.each_chr, .total_genome) %>>%
-    arrange(motif)
-
-if (FALSE) {
-    .data %>>%
-        filter(grepl('I', chr)) %>>%
-        arrange(vm_ratio) %>%
-        each(head, tail)(.)
-}
-
-write.table(.data, gzfile(.cache), sep='\t', row.names=FALSE, quote=FALSE)
-}
-```
-
 ```{r input, echo=FALSE}
+.cache = 'coefvar-ref.csv.gz'
+.data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
 .chrs = unique(as.character(.data$chr))
 names(.chrs) = .chrs
 inputPanel(
@@ -156,5 +55,5 @@ if (FALSE) {
 }
 
 #renderDataTable(filtered())
-renderDataTable(filtered(), options=list(order=c(5, 'asc')))
+renderDataTable(filtered(), options=list(order=list(c(5, 'asc'))))
 ```
