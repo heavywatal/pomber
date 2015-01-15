@@ -22,7 +22,7 @@ library(ggplot2)
 names(.chrs) = .chrs
 inputPanel(
     checkboxGroupInput('chr', 'Chromosome:', .chrs, 'total'),
-    sliderInput('ubound', 'Display x max:', 5, 150, 150, 5)
+    sliderInput('ubound', 'Display x max:', 5, 150, 100, 5)
 )
 ```
 
@@ -42,7 +42,8 @@ renderPlot(filtered() %>>%
     ggplot(aes(mean, var))+
     geom_point(aes(colour=chr), alpha=0.6)+
     geom_line(data=data_frame(mean=.range(), var=.range()))+
-    theme_bw()
+    theme_bw(),
+    width=720, height=600, res=96
 )
 
 if (FALSE) {
