@@ -17,11 +17,12 @@ library(ggplot2)
 
 ```{r input, echo=FALSE}
 .cache = 'coefvar-ref.csv.gz'
-.data = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
-.chrs = unique(as.character(.data$chr))
+.ref = read.table(.cache, header=TRUE, stringsAsFactors=FALSE) %>>% tbl_df()
+.chrs = unique(as.character(.ref$chr))
 names(.chrs) = .chrs
 inputPanel(
     checkboxGroupInput('chr', 'Chromosome:', .chrs, 'total'),
+    checkboxInput('exclude', 'Exclude repetitive region 688500:698500 in chr2, telomeres, and centromeres'),
     sliderInput('ubound', 'Display x max:', 5, 150, 100, 5)
 )
 ```
@@ -32,6 +33,11 @@ inputPanel(
 
 ```{r render, echo=FALSE}
 filtered = reactive({
+    .data = if (input$exclude) {
+        read.table('coefvar-intermere.csv.gz', header=TRUE, stringsAsFactors=FALSE)
+    } else {
+        .ref
+    }
     subset(.data, chr %in% input$chr) %>>%
         filter(mean < input$ubound)
 })

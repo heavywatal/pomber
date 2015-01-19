@@ -99,13 +99,54 @@ write.table(.mean, gzfile(.outfile), sep='\t', row.names=FALSE)
 #########1#########2#########3#########4#########5#########6#########7#########
 ## evenness
 
+.width = 20000
+.step = 20000
 .outfile = 'evenness/coefvar-ref.csv.gz'
+exclude_regions = FALSE
 
 chromosomes = list.files('distribution',
                          pattern='.*\\.chromosome\\.I+\\.fa\\.gz',
                          full.names=TRUE) %>>%
               readDNAStringSet()
 names(chromosomes) = names(chromosomes) %>>% str_extract('^I+')
+
+### telomere and centromere
+#  http://www.pombase.org/status/sequencing-status
+if (exclude_regions) {
+    .outfile = 'evenness/coefvar-intermere.csv.gz'
+    .lengths = width(chromosomes)
+    names(.lengths) = names(chromosomes)
+
+    .centromere = GRanges(c('I', 'II', 'III'),
+        IRanges(start=c(3753687, 1602264, 1070904),
+                end=c(3789421, 1644747, 1137003)),
+        seqlengths=.lengths)
+
+    .telomere = GRanges(c('I', 'I', 'II', 'II'),
+        IRanges(start=c(1, 5554844, 1, 4500619),
+                end=c(29663, 5579133, 39186, 4539804)),
+        seqlengths=.lengths)
+
+    .repetitive = GRanges(c('II', 'III'),
+        IRanges(start=c(688500, 960500),
+                width=c(10000, 1100)),
+        seqlengths=.lengths)
+
+    .gr_to_be_masked = union(union(.centromere, .telomere), .repetitive)
+
+    mask_dnass = function(dnass, granges) {
+        .chrs = levels(seqnames(granges))
+        llply(.chrs, function(ch) {
+            .gr = granges[seqnames(granges) == ch]
+            .seqs = mask(dnass[[ch]], start(.gr), end(.gr)) %>>% DNAStringSet()
+            names(.seqs) = rep(ch, length(.seqs))
+            .seqs
+        })
+    }
+    chromosomes = mask_dnass(chromosomes, .gr_to_be_masked) %>>% do.call(what=c)
+}
+
+#########1#########2#########3#########4#########5#########6#########7#########
 
 revcomp = function(x)
     x %>>% DNAStringSet() %>>% reverseComplement() %>>% as.character()
@@ -165,9 +206,6 @@ names(.oligos) = .oligos
     mutate(revcomp=revcomp(motif), motif=ifelse(motif==revcomp, motif, paste(motif, revcomp, sep='|'))) %>>%
     select(-revcomp)
 
-.width = 20000
-.step = 20000
-
 chromosomes = c(chromosomes, randomize(chromosomes))
 
 .raw = mdply(.queries, function(motif) {
@@ -196,42 +234,3 @@ if (FALSE) {
 }
 
 write.table(.data, gzfile(.outfile), sep='\t', row.names=FALSE, quote=FALSE)
-
-#########1#########2#########3#########4#########5#########6#########7#########
-## telomere and centromere
-#  http://www.pombase.org/status/sequencing-status
-
-.outfile = 'evenness/coefvar-intermere.csv.gz'
-
-.lengths = width(chromosomes)
-names(.lengths) = names(chromosomes)
-
-.centromere = GRanges(c('I', 'II', 'III'),
-    IRanges(start=c(3753687, 1602264, 1070904),
-            end=c(3789421, 1644747, 1137003)),
-    seqlengths=.lengths)
-
-.telomere = GRanges(c('I', 'I', 'II', 'II'),
-    IRanges(start=c(1, 5554844, 1, 4500619),
-            end=c(29663, 5579133, 39186, 4539804)),
-    seqlengths=.lengths)
-
-.repetitive = GRanges(c('II'),
-    IRanges(start=c(688500),
-            width=c(10000)),
-    seqlengths=.lengths)
-
-.intermere = gaps(union(union(.centromere, .telomere), .repetitive))
-.intermere = .intermere[.intermere@strand == '*']
-
-filter_dnass = function(dnass, gr) {
-    .names = seqnames(gr) %>>% as.character()
-    .indices = seq_len(length(gr))
-    names(.indices) = .names
-    llply(.indices, function(i) {
-        dnass[[.names[i]]][start(gr)[i]:end(gr)[i]]
-    })
-}
-.interseq = filter_dnass(chromosomes, .intermere) %>>% DNAStringSet()
-chromosomes = .interseq
-
