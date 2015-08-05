@@ -97,8 +97,8 @@ inputPanel(
 
 ```{r data, echo=FALSE}
 chromosomes = list.files(pattern='.*\\.chromosome\\.I+\\.fa\\.gz', full.names=TRUE) %>>%
-    readDNAStringSet()
-names(chromosomes) = names(chromosomes) %>>% str_extract('^I+')
+    readDNAStringSet %>>%
+    setNames(str_extract(names(.), '^I+'))
 
 if (FALSE) {
     .weight = alphabetFrequency(chromosomes) %>>%
@@ -131,7 +131,7 @@ if (nchar(input$query) < 4) {
 p1 = ggplot(.data, aes(pos))+
     geom_area(aes(y=observed), fill='#009999')+
     geom_line(aes(y=expected), colour='#FF3300', alpha=0.6)+
-    geom_point(data=.observed, aes(y=-1), shape='|')+
+    #geom_point(data=.observed, aes(y=-1), shape='|')+
     facet_grid(chr ~ ., labeller=label_both)+
     scale_x_continuous(expand=c(0, 0), breaks=.breaks)+#seq(0, 6e6, 2e5))+
     theme_bw()+
