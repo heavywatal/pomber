@@ -2,13 +2,15 @@
 
 ### Interactive documents
 
-http://charles.biology.tohoku.ac.jp/pomber/distribution/
+[全6-merの保存性を多型データで見る](http://charles.biology.tohoku.ac.jp/pomber/polymorphism/)
 
-http://charles.biology.tohoku.ac.jp/pomber/polymorphism/
+[全6-merの分布の偏り具合を大まかに見る](http://charles.biology.tohoku.ac.jp/pomber/evenness/)
 
-http://charles.biology.tohoku.ac.jp/pomber/evenness/
+[個々の配列のゲノム上での分布を見る](http://charles.biology.tohoku.ac.jp/pomber/distribution/)
 
 ### Original data
+
+[新学術領域研究「ゲノムを支える非コードDNA領域の機能」](http://www.nsc.nagoya-cu.ac.jp/~jnakayam/ncDNA.html)
 
 Fawcett et al. (2014)
 "Population Genomics of the Fission Yeast *Schizosaccharomyces pombe*"
