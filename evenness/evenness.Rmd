@@ -1,7 +1,6 @@
 ---
 title: "Evenness of 6-mer occurrence in *S. pombe* genome"
-output:
-  html_document:
+output: html_document
 runtime: shiny
 ---
 
@@ -15,7 +14,8 @@ runtime: shiny
 分散/平均 (variance-mean ratio) が小さいほど一様分布、大きいほど集中分布になる。
 下図の黒い直線は分散=平均。
 
-個々の配列の分布については[こちらのページ](../distribution/)で確認。
+[→ 個々の配列のゲノム上での分布を見る](../distribution/)\
+[→ 全6-merの保存性を多型データで見る](../polymorphism/)
 
 ```{r library, echo=FALSE, message=FALSE}
 library(stringr)

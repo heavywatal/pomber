@@ -12,6 +12,9 @@ runtime: shiny
 重要な機能を持っているため突然変異個体が排除されるような配列では、
 これらの要約統計量は低くなる。
 
+[→ 個々の配列のゲノム上での分布を見る](../distribution/)\
+[→ 全6-merの分布の偏り具合を大まかに見る](../evenness/)
+
 ```{r library, echo=FALSE, message=FALSE}
 library(pipeR)
 library(dplyr)
