@@ -1,11 +1,19 @@
 ---
-title: "Motif occurrence in S. pombe reference genome"
+title: "Evenness of 6-mer occurrence in *S. pombe* genome"
 output:
   html_document:
 runtime: shiny
 ---
 
-Windows are 20000bp wide and not overlapped.
+あらゆる6-mer配列のなかで、
+ゲノム上に固まっているものはあるか？
+逆に、ランダムよりも均等に配置されているものはあるか？
+
+ゲノムを20kbごとに区切った断片においてそれぞれの6-mer配列の出現頻度を数え、
+平均と分散を計算してプロットした。
+塩基配列がランダムな並びであれば、6-merの出現頻度は平均=分散のポアソン分布に従うと考えられる。
+分散/平均 (variance-mean ratio) が小さいほど一様分布、大きいほど集中分布になる。
+下図の黒い直線は分散=平均。
 
 ```{r library, echo=FALSE, message=FALSE}
 library(stringr)
@@ -26,10 +34,6 @@ inputPanel(
     sliderInput('ubound', 'Display x max:', 5, 150, 100, 5)
 )
 ```
-
-塩基配列がランダムな並びであれば、あるモチーフが一定区間内にいくつ出現するか、という数は平均=分散のポアソン分布に従うと考えられる。
-分散/平均 (variance-mean ratio) が小さいほど一様分布、1のときランダム分布、大きいほど集中分布になる。
-下図の黒い直線は分散=平均を結んだもの。
 
 ```{r render, echo=FALSE}
 filtered = reactive({
