@@ -1,18 +1,14 @@
-Population genomic data of S. pombe 
-================================================================================
+## Population genomic data of *S. pombe*
 
-Interactive documents
----------------------
+### Interactive documents
 
-http://heavywatal.shinyapps.io/pombe-polymorphism
+http://charles.biology.tohoku.ac.jp/pomber/distribution/
 
-http://heavywatal.shinyapps.io/pombe-motif-distribution
+http://charles.biology.tohoku.ac.jp/pomber/polymorphism/
 
-http://heavywatal.shinyapps.io/pombe-motif-evenness
+http://charles.biology.tohoku.ac.jp/pomber/evenness/
 
-
-Original data
--------------
+### Original data
 
 Fawcett et al. (2014)
 "Population Genomics of the Fission Yeast *Schizosaccharomyces pombe*"
