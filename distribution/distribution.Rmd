@@ -1,11 +1,17 @@
 ---
-title: "Motif distribution in S. pombe reference genome"
+title: "Motif distribution in *S. pombe* genome"
 output:
   html_document:
     fig_height: 6
     fig_width: 12
 runtime: shiny
 ---
+
+指定したオリゴマーがゲノム上にどのように分布しているか、
+sliding windowで数え上げた結果と、
+window内の塩基頻度から期待される頻度をプロットする。
+
+([こちらのページ](evenness/)で全体の大まかな傾向を参照。)
 
 ```{r library, echo=FALSE, message=FALSE}
 library(stringr)
@@ -73,7 +79,7 @@ observe = function(.query) {
 
 #https://github.com/hadley/ggplot2/pull/939
 ggpng = function(..., width, height) {
-    grDevices::png(..., width = width, 
+    grDevices::png(..., width = width,
         height = height, res = 300, units = "in")
 }
 ```
