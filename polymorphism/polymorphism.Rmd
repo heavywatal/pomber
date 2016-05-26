@@ -1,9 +1,16 @@
 ---
-title: "S. pombe polymorphism statistics"
-output:
-  html_document:
+title: "Summarize polymorphisms in *S. pombe* lineages"
+output: html_document
 runtime: shiny
 ---
+
+自然選択を受けている配列モチーフはあるか？
+
+すべての6-mer配列について、
+塩基多様度$\theta_\pi$とTajima's Dを計算した。
+自然選択により急激に広まった配列や、
+重要な機能を持っているため突然変異個体が排除されるような配列では、
+これらの要約統計量は低くなる。
 
 ```{r library, echo=FALSE, message=FALSE}
 library(pipeR)
