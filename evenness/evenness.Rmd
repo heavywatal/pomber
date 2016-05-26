@@ -15,6 +15,8 @@ runtime: shiny
 分散/平均 (variance-mean ratio) が小さいほど一様分布、大きいほど集中分布になる。
 下図の黒い直線は分散=平均。
 
+個々の配列の分布については[こちらのページ](../distribution/)で確認。
+
 ```{r library, echo=FALSE, message=FALSE}
 library(stringr)
 library(pipeR)

@@ -11,7 +11,7 @@ runtime: shiny
 sliding windowで数え上げた結果と、
 window内の塩基頻度から期待される頻度をプロットする。
 
-([こちらのページ](evenness/)で全体の大まかな傾向を参照。)
+([こちらのページ](../evenness/)で全体の大まかな傾向を参照。)
 
 ```{r library, echo=FALSE, message=FALSE}
 library(stringr)
