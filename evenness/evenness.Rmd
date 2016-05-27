@@ -23,6 +23,7 @@ library(pipeR)
 library(plyr)
 library(dplyr)
 library(ggplot2)
+library(plotly)
 ```
 
 ```{r input, echo=FALSE}
@@ -31,7 +32,7 @@ library(ggplot2)
 .chrs = unique(as.character(.ref$chr))
 names(.chrs) = .chrs
 inputPanel(
-    checkboxGroupInput('chr', 'Chromosome:', .chrs, 'total'),
+    checkboxGroupInput('chr', 'Chromosome:', .chrs, c('randomized', 'total')),
     checkboxInput('exclude', 'Exclude repetitive region 688500:698500 in chr2, telomeres, and centromeres'),
     sliderInput('ubound', 'Display x max:', 5, 150, 100, 5)
 )
@@ -45,18 +46,19 @@ filtered = reactive({
         .ref
     }
     subset(.data, chr %in% input$chr) %>>%
-        filter(mean < input$ubound)
+        dplyr::filter(mean < input$ubound)
 })
 
 .range = reactive(range(filtered()$mean))
 
-renderPlot(filtered() %>>%
-    ggplot(aes(mean, var))+
-    geom_point(aes(colour=chr), alpha=0.6)+
+output$plot = renderPlotly(filtered() %>>% {
+    ggplot(., aes(mean, var))+
+    geom_point(aes(text=motif, colour=chr), alpha=0.6)+
     geom_line(data=data_frame(mean=.range(), var=.range()))+
-    theme_bw(),
-    width=720, height=600, res=96
+    theme_bw()
+    } %>>% ggplotly(tooltip=c('text', 'x', 'y', 'colour'))
 )
+plotlyOutput('plot', width='720px', height='600px')
 
 if (FALSE) {
     renderPlot(filtered() %>>%
