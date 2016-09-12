@@ -46,7 +46,7 @@ sliding_window = function(.query, .width, .step) {
         .nucl_count = Views(.chr, .windows) %>>%
             alphabetFrequency(as.prob=TRUE) %>>%
             `[`(,c('A', 'C', 'G', 'T', 'N'))
-        .hit = matchPDict(.query, .chr) %>>% Biostrings::unlist()
+        .hit = matchPDict(.query, .chr) %>>% BiocGenerics::unlist()
         data.frame(
             pos=end(.windows) - .width / 2,
             .nucl_count,
@@ -72,7 +72,7 @@ sliding_window = function(.query, .width, .step) {
 observe = function(.query) {
     ldply(chromosomes, function(.s) {
         matchPDict(.query, .s) %>>%
-            Biostrings::unlist() %>>%
+            BiocGenerics::unlist() %>>%
             start() %>>%
             (data.frame(pos=.))
     }, .id='chr') %>>% tbl_df()# %>>% (? .)
