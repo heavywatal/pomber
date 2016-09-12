@@ -54,6 +54,7 @@ output$plot = renderPlotly(
     theme(legend.position='none')
     } %>>% ggplotly(tooltip=c('text', 'x', 'y'))
 )
+pdf(NULL)
 plotlyOutput('plot', height='800px')
 ```
 
